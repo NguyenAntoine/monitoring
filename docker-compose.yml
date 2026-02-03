@@ -42,16 +42,14 @@ services:
       - "com.example.description=Grafana monitoring dashboard"
 
   loki:
-    image: grafana/loki:latest
+    image: grafana/loki:3.5.9
     container_name: monitoring_loki
     restart: unless-stopped
     user: "10001"
     volumes:
       - ./config/loki/loki-config.yml:/etc/loki/local-config.yaml:ro
       - loki_data:/loki
-    command:
-      - -config.file=/etc/loki/local-config.yaml
-      - -modules=ingester,distributor,querier
+    command: -config.file=/etc/loki/local-config.yaml
     expose:
       - 3100
     networks:
