@@ -85,7 +85,8 @@ services:
       - /:/rootfs:ro
     expose:
       - 9100
-    network_mode: host
+    networks:
+      - default
     environment:
       - NODE_ID=node-1
 
@@ -106,6 +107,11 @@ services:
     networks:
       - default
     privileged: true
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8080/api/v1.3/machine"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
 
 volumes:
   prometheus_data:
