@@ -29,7 +29,7 @@ schema_config:
 
 storage_config:
   tsdb_shipper:
-    active_index_directory: /loki/tsdb-shipper-active
-    cache_location: /loki/tsdb-shipper-cache
+    active_index_directory: /loki/index
+    cache_location: /loki/cache
   filesystem:
     directory: /loki/chunks

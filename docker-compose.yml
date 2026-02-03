@@ -45,6 +45,7 @@ services:
     image: grafana/loki:latest
     container_name: monitoring_loki
     restart: unless-stopped
+    user: "10001"
     volumes:
       - ./config/loki/loki-config.yml:/etc/loki/local-config.yaml:ro
       - loki_data:/loki
