@@ -13,12 +13,6 @@ ingester:
       kvstore:
         store: inmemory
       replication_factor: 1
-    num_tokens: 128
-    heartbeat_timeout: 5m
-  wal:
-    enabled: true
-    dir: /loki/wal
-    checkpoint_duration: 5m
 
 limits_config:
   reject_old_samples: true
