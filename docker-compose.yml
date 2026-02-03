@@ -49,7 +49,9 @@ services:
     volumes:
       - ./config/loki/loki-config.yml:/etc/loki/local-config.yaml:ro
       - loki_data:/loki
-    command: -config.file=/etc/loki/local-config.yaml
+    command:
+      - -config.file=/etc/loki/local-config.yaml
+      - -modules=ingester,distributor,querier
     expose:
       - 3100
     networks:
