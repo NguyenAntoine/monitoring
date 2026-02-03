@@ -104,6 +104,9 @@ services:
       - 8080
     devices:
       - /dev/kmsg
+    command:
+      - --housekeeping_interval=10s
+      - --max_housekeeping_interval=1m
     networks:
       - default
     privileged: true
