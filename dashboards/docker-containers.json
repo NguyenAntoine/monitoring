@@ -62,7 +62,7 @@
       "pluginVersion": "8.0.0",
       "targets": [
         {
-          "expr": "count(container_last_seen)",
+          "expr": "count(container_memory_usage_bytes{name!=\"\"})",
           "refId": "A"
         }
       ],
