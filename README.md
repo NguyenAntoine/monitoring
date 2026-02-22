@@ -1,42 +1,39 @@
-# Monitoring & Logging Infrastructure
+# Monitoring Infrastructure
 
-Comprehensive monitoring and logging stack for VPS services using Prometheus, Grafana, Loki, and Promtail.
+Comprehensive metrics monitoring stack for VPS services using Prometheus, Grafana, Node Exporter, and cAdvisor.
 
 ## Overview
 
 This repository sets up a complete observability platform with:
 
 - **Prometheus**: Metrics collection and storage
-- **Grafana**: Unified visualization dashboard for metrics and logs
-- **Loki**: Lightweight log aggregation
-- **Promtail**: Log shipper for Docker containers
+- **Grafana**: Unified visualization dashboard for metrics
 - **Node Exporter**: System-level metrics (CPU, RAM, disk, network)
 - **cAdvisor**: Docker container metrics
+
+> **Note**: Loki (log aggregation) is currently disabled. To re-enable, uncomment services in `docker-compose.yml`.
 
 ## Architecture
 
 ### Services
 
 ```
-┌─────────────┐  ┌──────────────┐  ┌──────────┐
-│Node Exporter│  │   cAdvisor   │  │Prometheus│
-└──────┬──────┘  └──────┬───────┘  └────┬─────┘
-       │                │              │
-       └────────────────┴──────────────┘
+┌─────────────┐  ┌──────────────┐
+│Node Exporter│  │   cAdvisor   │
+└──────┬──────┘  └──────┬───────┘
+       │                │
+       └────────────────┴──────────────┐
                         │
                   ┌─────▼─────┐
                   │ Prometheus │
                   │  Database  │
                   └─────┬──────┘
                         │
-        ┌───────────────┼───────────────┐
-        │               │               │
-   ┌────▼────┐    ┌────▼────┐    ┌────▼────┐
-   │ Grafana │    │  Loki   │    │Promtail │
-   └─────────┘    └─────────┘    └────┬────┘
-        │              ▲               │
-        │              └───────────────┘
-   nginx-proxy                    Docker logs
+                   ┌────▼────┐
+                   │ Grafana  │
+                   └──────────┘
+                        │
+                   nginx-proxy
 ```
 
 ## Quick Start
@@ -85,7 +82,6 @@ GF_SECURITY_ADMIN_PASSWORD=your-secure-password
 
 # Data retention
 PROMETHEUS_RETENTION=15d      # How long to keep metrics
-LOKI_RETENTION=7d             # How long to keep logs
 ```
 
 ### Prometheus Configuration
@@ -99,13 +95,6 @@ scrape_configs:
       - targets: ['my-service:9100']
 ```
 
-### Loki Configuration
-
-Configured in `config/loki/loki-config.yml` for log storage and retention.
-
-### Promtail Configuration
-
-Automatically discovers and tails Docker container logs via docker daemon socket.
 
 ## Access
 
@@ -113,7 +102,6 @@ Once deployed on VPS:
 
 - **Grafana**: https://grafana.nguyenantoine.com (requires SSL via nginx-proxy)
 - **Prometheus**: http://vps:9090 (internal only)
-- **Loki**: http://vps:3100 (internal only)
 
 ## Dashboards
 
@@ -122,7 +110,6 @@ Grafana dashboards are automatically provisioned. Available dashboards:
 ### Pre-configured
 - System Overview (Node Exporter metrics)
 - Docker Containers (cAdvisor metrics)
-- Logs Browser (Loki logs)
 
 ### Future additions
 - nginx-proxy metrics and access logs
@@ -136,9 +123,42 @@ Persistent data is stored in `./data/`:
 
 - `prometheus/`: Metrics (tsdb format)
 - `grafana/`: Dashboards, datasources, preferences
-- `loki/`: Logs (BoltDB with filesystem store)
 
 These directories are gitignored and must be backed up separately.
+
+## Re-enabling Loki (Log Aggregation)
+
+Loki is currently disabled to reduce storage and resource usage. If you need log aggregation in the future:
+
+### 1. Uncomment Services in docker-compose.yml
+
+```bash
+# Uncomment these sections in docker-compose.yml:
+# - loki service (lines 44-56)
+# - promtail service (lines 58-71)
+# - loki_data volume (lines 124-125)
+# - Add "- loki" back to grafana's depends_on (line 24)
+```
+
+### 2. Restart Services
+
+```bash
+docker compose down
+docker compose up -d
+```
+
+### 3. Add Loki Datasource in Grafana
+
+- Navigate to Grafana → Connections → Data sources
+- Add new datasource: Loki
+- URL: `http://loki:3100`
+
+### 4. Verify Logs Are Collected
+
+```bash
+# Check Promtail is collecting logs
+docker compose logs promtail | head -20
+```
 
 ## Docker Compose Commands
 
@@ -175,27 +195,6 @@ docker compose restart prometheus
 4. **Redis**: Cache hit/miss rates, memory usage
 5. **Alertmanager**: Alert routing and notifications
 
-## Log Queries
-
-In Grafana Explore (with Loki datasource):
-
-```logql
-# All logs
-{container=~".+"}
-
-# Specific container
-{container="nextcloud_app"}
-
-# Logs containing "error"
-{container=~".+"} |= "error"
-
-# Logs from multiple containers
-{container=~"nginx|nextcloud"}
-
-# Parse JSON logs
-{container="app"} | json
-```
-
 ## Troubleshooting
 
 ### Prometheus targets down
@@ -208,16 +207,6 @@ docker compose exec prometheus wget -qO- http://localhost:9090/api/v1/targets | 
 docker compose exec prometheus ping node-exporter
 ```
 
-### Loki not receiving logs
-
-```bash
-# Check Promtail logs
-docker compose logs promtail
-
-# Verify Docker socket mounting
-docker compose exec promtail ls -la /var/run/docker.sock
-```
-
 ### Grafana datasource issues
 
 ```bash
@@ -226,7 +215,6 @@ docker compose logs grafana | grep datasource
 
 # Verify internal DNS
 docker compose exec grafana ping prometheus
-docker compose exec grafana ping loki
 ```
 
 ### Disk space usage
@@ -245,20 +233,17 @@ docker compose up -d
 
 ### Resource Usage
 
-- **CPU**: ~0.5-1 core (all services combined)
-- **Memory**: ~1-2 GB
+- **CPU**: ~0.5 cores (all services combined)
+- **Memory**: ~1 GB
   - Prometheus: 512 MB
   - Grafana: 256 MB
-  - Loki: 256 MB
   - Others: 256 MB
-- **Disk**: Grows with retention (5-10 GB for 7-15 days)
+- **Disk**: Grows with retention (~5 GB for 15 days)
 
 ### Optimization Tips
 
 1. Reduce scrape interval for less frequent updates
-2. Adjust retention periods based on storage capacity
-3. Use log sampling in Promtail for high-volume services
-4. Configure Loki table retention to auto-delete old data
+2. Adjust Prometheus retention periods based on storage capacity
 
 ## Updates
 
@@ -284,9 +269,8 @@ rsync -avz /home/antoine/apps/monitoring/data/ backup/monitoring-data/
 
 1. **Grafana Access**: Exposed via nginx-proxy with SSL
 2. **Admin Password**: Change `GF_SECURITY_ADMIN_PASSWORD` in .env
-3. **Prometheus/Loki**: Not exposed externally (internal network only)
-4. **Docker Socket**: Mounted read-only in Promtail
-5. **Network Isolation**: Uses internal `default` and external `reverse-proxy` networks
+3. **Prometheus**: Not exposed externally (internal network only)
+4. **Network Isolation**: Uses internal `default` and external `reverse-proxy` networks
 
 ## Verification Steps
 
@@ -309,19 +293,13 @@ curl http://vps:9090/api/v1/targets
 - Navigate to https://grafana.nguyenantoine.com
 - Login with configured credentials
 - Check Connections → Data sources
-- Both Prometheus and Loki should show "Connected"
+- Prometheus should show "Connected"
 
-### 4. Log Collection
-- In Grafana Explore
-- Select Loki datasource
-- Query: `{container=~".+"}`
-- Should see logs from all running containers
-
-### 5. System Metrics
+### 4. System Metrics
 - Open Node Exporter Full dashboard
 - Verify CPU, memory, disk, and network metrics
 
-### 6. Container Metrics
+### 5. Container Metrics
 - Open Docker Containers dashboard
 - Should list all running containers with resource usage
 
